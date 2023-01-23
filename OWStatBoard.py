@@ -1,12 +1,11 @@
 import discord
-import htmlparse as stat
+import statlookup as stat
 from discord.ext import commands
+import asyncio
 import json
 import os
 
-'''
-I HAVE A SOLUTION. WE WEBSCRAPE. https://overwatch.blizzard.com/en-us/career/BATTLENETNAME-BATTLENETNUMBER/. I'll figure it out later, but it will work.
-'''
+
 # Get configuration.json
 with open("configuration.json", "r") as config: 
 	data = json.load(config)
@@ -37,12 +36,6 @@ if __name__ == '__main__':
 	for filename in os.listdir("Cogs"):
 		if filename.endswith(".py"):
 			bot.load_extension(f"Cogs.{filename[:-3]}")
-
-@bot.command()
-async def dps(ctx):
-	embed = discord.Embed(title = "Overwatch DPS Rankings", description= ":first_place: Easton \n:second_place: Caroline", color=discord.Colour.from_rgb(249,158,26))
-	embed.set_footer(text = "Easton #1 wooo")
-	await ctx.reply(embed=embed, mention_author=False)
 	
 @bot.command()
 async def owhelp(ctx):
@@ -52,9 +45,19 @@ async def owhelp(ctx):
 
 @bot.command()
 async def stats(ctx, message):
-	embed = discord.Embed(title = "Overwatch Stats", description= f'Healing (avg/10 mins): {stat.averageHealing(message)} \
-		\nDamage (avg/10 mins): {stat.averageDamage(message)} \nWin Rate (%): {stat.gamesPlayed(message)}', color=discord.Colour.from_rgb(249,158,26))
-	embed.set_footer(text = "Good stuff gamer")
+	async with ctx.typing():
+		user = stat.player(message)
+		if user.exists and not user.private:
+			embed = discord.Embed(title = "Overwatch Stats", description= f'Healing (avg/10 mins): {user.healing} \
+				\nDamage (avg/10 mins): {user.damage} \nWin Rate (%): {user.wins}', color=discord.Colour.from_rgb(249,158,26))
+			embed.set_footer(text = "Good stuff gamer")
+		elif user.exists and user.private:
+			embed = discord.Embed(title = "Overwatch Stats", description= f'User {message} is private!', color=discord.Colour.from_rgb(249,158,26))
+			embed.set_footer(text = f'[Set your profile visibility to \'Public\' to display your stats]')
+		else:
+			embed = discord.Embed(title = "Overwatch Stats", description= f'User {message} does not exist.', color=discord.Colour.from_rgb(249,158,26))
+			embed.set_footer(text = "Please ensure you enter your exact BattleID with format \"Name-Number\"")
+		await asyncio.sleep(1)
 	await ctx.reply(embed=embed, mention_author=False)
 	
 @bot.event
