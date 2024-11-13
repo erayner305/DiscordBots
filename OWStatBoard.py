@@ -64,7 +64,7 @@ async def stats(ctx, message):
 			last_updated = data.get("timestamp")
 			if last_updated and datetime.now(timezone.utc) - last_updated < timedelta(hours=1):
 				embed = discord.Embed(
-					title="Overwatch Stats (Cached)",
+					title="Overwatch Stats",
 					description=f"Healing (avg/10 mins): {data['healing']} \nDamage (avg/10 mins): {data['damage']} \nWin Rate (%): {data['wins']}", 
 					color=discord.Colour.from_rgb(249,158,26)
 				)
@@ -92,6 +92,45 @@ async def stats(ctx, message):
 			embed.set_footer(text = "Please ensure you enter your exact BattleID with format \"Name#Number\"")
 		await asyncio.sleep(1)
 	await ctx.reply(embed=embed, mention_author=False)
+
+@bot.command()
+async def damage(ctx):
+    users_ref = db.collection('user_stats')
+    # Get all users sorted by damage in descending order
+    users = users_ref.order_by("damage", direction=firestore.Query.DESCENDING).limit(10).stream()
+
+    embed = discord.Embed(title="Damage Leaderboard", color=discord.Colour.from_rgb(249,158,26))
+    for i, user in enumerate(users, start=1):
+        data = user.to_dict()
+        embed.add_field(name=f"{i}. {user.id}", value=f"Damage (avg/10 mins): {data['damage']}", inline=False)
+
+    await ctx.reply(embed=embed, mention_author=False)
+
+@bot.command()
+async def healing(ctx):
+    users_ref = db.collection('user_stats')
+    # Get all users sorted by healing in descending order
+    users = users_ref.order_by("healing", direction=firestore.Query.DESCENDING).limit(10).stream()
+
+    embed = discord.Embed(title="Healing Leaderboard", color=discord.Colour.from_rgb(249,158,26))
+    for i, user in enumerate(users, start=1):
+        data = user.to_dict()
+        embed.add_field(name=f"{i}. {user.id}", value=f"Healing (avg/10 mins): {data['healing']}", inline=False)
+
+    await ctx.reply(embed=embed, mention_author=False)
+
+@bot.command()
+async def winrate(ctx):
+    users_ref = db.collection('user_stats')
+    # Get all users sorted by win rate in descending order
+    users = users_ref.order_by("wins", direction=firestore.Query.DESCENDING).limit(10).stream()
+
+    embed = discord.Embed(title="Win rate Leaderboard", color=discord.Colour.from_rgb(249,158,26))
+    for i, user in enumerate(users, start=1):
+        data = user.to_dict()
+        embed.add_field(name=f"{i}. {user.id}", value=f"Win rate: {data['wins']}", inline=False)
+
+    await ctx.reply(embed=embed, mention_author=False)
 
 @bot.event
 async def on_ready():
