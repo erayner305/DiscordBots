@@ -2,7 +2,7 @@ from urllib.request import urlopen
 
 class player:
     def openURL(self, battleID):
-        userinfo = battleID
+        userinfo = battleID.replace("#", "-")
         url = f'https://overwatch.blizzard.com/en-us/career/{userinfo}/'
         page = urlopen(url)
         html = page.read().decode("utf-8")
@@ -14,7 +14,7 @@ class player:
 
         start = html.find(htmlID) + modifier
         if start != modifier - 1:
-            totalGames = html[start:html.find("</p>", start)]
+            totalGames = int(html[start:html.find("</p>", start)].replace(",", ""))
         else:
             self.private = True
             return "Profile is Private!"
@@ -23,7 +23,7 @@ class player:
         modifier = len(htmlID)
 
         start = html.find(htmlID) + modifier
-        wonGames = int(totalGames) - int(html[start:html.find("</p>", start)])
+        wonGames = totalGames - int(html[start:html.find("</p>", start)].replace(",", ""))
 
         output = round((float(wonGames)/float(totalGames)) * 100, 2)
         return output
@@ -44,7 +44,7 @@ class player:
             self.private = True
             return "Profile is Private!"
 
-        return int(output)
+        return int(output.replace(",", ""))
         
 
     def __init__(player, battleID):
@@ -58,7 +58,8 @@ class player:
             player.damage = player.averages("damage", profile)
             player.wins = player.winRate(profile)
 
-eric = player("Breach-11489")
-print(eric.damage)
-print(eric.healing)
-print(eric.wins)
+
+# eric = player("Breach-11489")
+# print(eric.damage)
+# print(eric.healing)
+# print(eric.wins)

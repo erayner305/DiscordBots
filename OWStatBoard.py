@@ -1,10 +1,16 @@
 import discord
-import statlookup as stat
 from discord.ext import commands
+
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import firestore
+
+import statlookup as stat
+
 import asyncio
 import json
 import os
-
+from datetime import datetime, timedelta, timezone
 
 # Get configuration.json
 with open("configuration.json", "r") as config: 
@@ -14,6 +20,10 @@ with open("configuration.json", "r") as config:
 	prefix = data["prefix"]
 	owner_id = data["owner_id"]
 
+# Get firebase database
+cred = credentials.Certificate("firebase_configuration.json")
+default_app = firebase_admin.initialize_app(cred)
+db = firestore.client()
 
 class Greetings(commands.Cog):
 	def __init__(self, bot):
@@ -40,14 +50,37 @@ if __name__ == '__main__':
 @bot.command()
 async def owhelp(ctx):
 	embed = discord.Embed(title = "Bot Help", description= "Some useful commands:", color=discord.Colour.from_rgb(249,158,26))
-	embed.add_field(name='/stats BattleNetID-Num', value='Ensure you replace the \'#\' with \'-\'')
+	embed.add_field(name='/stats BattleNetID#Num', value='Ensure you include your ID and Number! \nYour profile must be set to public for us to find your stats.')
 	await ctx.reply(embed=embed, mention_author=False)
 
 @bot.command()
 async def stats(ctx, message):
 	async with ctx.typing():
+		doc_ref = db.collection('user_stats').document(message)
+		doc = doc_ref.get()
+
+		if doc.exists:
+			data = doc.to_dict()
+			last_updated = data.get("timestamp")
+			if last_updated and datetime.now(timezone.utc) - last_updated < timedelta(hours=1):
+				embed = discord.Embed(
+					title="Overwatch Stats (Cached)",
+					description=f"Healing (avg/10 mins): {data['healing']} \nDamage (avg/10 mins): {data['damage']} \nWin Rate (%): {data['wins']}", 
+					color=discord.Colour.from_rgb(249,158,26)
+				)
+				await ctx.reply(embed=embed, mention_author=False)
+				return
+
 		user = stat.player(message)
 		if user.exists and not user.private:
+			# Save data to firestore
+			doc_ref.set({
+				'healing': user.healing,
+				'damage': user.damage,
+				'wins': user.wins,
+				'timestamp': datetime.now(timezone.utc)
+			})
+
 			embed = discord.Embed(title = "Overwatch Stats", description= f'Healing (avg/10 mins): {user.healing} \
 				\nDamage (avg/10 mins): {user.damage} \nWin Rate (%): {user.wins}', color=discord.Colour.from_rgb(249,158,26))
 			embed.set_footer(text = "Good stuff gamer")
@@ -56,10 +89,10 @@ async def stats(ctx, message):
 			embed.set_footer(text = f'[Set your profile visibility to \'Public\' to display your stats]')
 		else:
 			embed = discord.Embed(title = "Overwatch Stats", description= f'User {message} does not exist.', color=discord.Colour.from_rgb(249,158,26))
-			embed.set_footer(text = "Please ensure you enter your exact BattleID with format \"Name-Number\"")
+			embed.set_footer(text = "Please ensure you enter your exact BattleID with format \"Name#Number\"")
 		await asyncio.sleep(1)
 	await ctx.reply(embed=embed, mention_author=False)
-	
+
 @bot.event
 async def on_ready():
 	print(f"We have logged in as {bot.user}")
