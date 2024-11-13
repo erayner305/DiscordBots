@@ -51,12 +51,17 @@ if __name__ == '__main__':
 async def owhelp(ctx):
 	embed = discord.Embed(title = "Bot Help", description= "Some useful commands:", color=discord.Colour.from_rgb(249,158,26))
 	embed.add_field(name='/stats BattleNetID#Num', value='Ensure you include your ID and Number! \nYour profile must be set to public for us to find your stats.')
+	embed.add_field(name='/damage', value='Displays a leaderboard of damage per 10 minutes from all stored users')
+	embed.add_field(name='/healing', value='Displays a leaderboard of healing per 10 minutes from all stored users')
+	embed.add_field(name='/winrate', value='Displays a leaderboard of winrate from all stored users')
+	embed.add_field(name='/remove BattleNetID#Num', value='Removes a specific user from the stored user data for your server')
 	await ctx.reply(embed=embed, mention_author=False)
 
 @bot.command()
 async def stats(ctx, message):
+	guild_id = ctx.guild.id
 	async with ctx.typing():
-		doc_ref = db.collection('user_stats').document(message)
+		doc_ref = db.collection('guilds').document(str(guild_id)).collection('user_stats').document(message)
 		doc = doc_ref.get()
 
 		if doc.exists:
@@ -94,43 +99,64 @@ async def stats(ctx, message):
 	await ctx.reply(embed=embed, mention_author=False)
 
 @bot.command()
+async def remove(ctx, message):
+	guild_id = ctx.guild.id
+	async with ctx.typing():
+		doc_ref = db.collection('guilds').document(str(guild_id)).collection('user_stats').document(message)
+		doc = doc_ref.get()
+
+		if doc.exists:
+			doc_ref.delete()
+			embed = discord.Embed(
+				title="Overwatch Stats",
+				description=f'User "{message}" succesfully removed', 
+				color=discord.Colour.from_rgb(249,158,26)
+			)
+		else:
+			embed = discord.Embed(title = "Overwatch Stats", description= f'Cannot remove, user "{message}" does not exist.', color=discord.Colour.from_rgb(249,158,26))
+			embed.set_footer(text = "Please ensure you enter your exact BattleID with format \"Name#Number\"")
+	await ctx.reply(embed=embed, mention_author=False)
+
+@bot.command()
 async def damage(ctx):
-    users_ref = db.collection('user_stats')
+	guild_id = ctx.guild.id
+	users_ref = db.collection('guilds').document(str(guild_id)).collection('user_stats')
     # Get all users sorted by damage in descending order
-    users = users_ref.order_by("damage", direction=firestore.Query.DESCENDING).limit(10).stream()
+	users = users_ref.order_by("damage", direction=firestore.Query.DESCENDING).limit(10).stream()
+	embed = discord.Embed(title="Damage Leaderboard (Top 10)", color=discord.Colour.from_rgb(249,158,26))
+	for i, user in enumerate(users, start=1):
+		data = user.to_dict()
+		embed.add_field(name=f"{i}. {user.id}", value=f"Damage (avg/10 mins): {data['damage']}", inline=False)
 
-    embed = discord.Embed(title="Damage Leaderboard", color=discord.Colour.from_rgb(249,158,26))
-    for i, user in enumerate(users, start=1):
-        data = user.to_dict()
-        embed.add_field(name=f"{i}. {user.id}", value=f"Damage (avg/10 mins): {data['damage']}", inline=False)
-
-    await ctx.reply(embed=embed, mention_author=False)
+	await ctx.reply(embed=embed, mention_author=False)
 
 @bot.command()
 async def healing(ctx):
-    users_ref = db.collection('user_stats')
-    # Get all users sorted by healing in descending order
-    users = users_ref.order_by("healing", direction=firestore.Query.DESCENDING).limit(10).stream()
+	guild_id = ctx.guild.id
+	users_ref = db.collection('guilds').document(str(guild_id)).collection('user_stats')
+	# Get all users sorted by healing in descending order
+	users = users_ref.order_by("healing", direction=firestore.Query.DESCENDING).limit(10).stream()
 
-    embed = discord.Embed(title="Healing Leaderboard", color=discord.Colour.from_rgb(249,158,26))
-    for i, user in enumerate(users, start=1):
-        data = user.to_dict()
-        embed.add_field(name=f"{i}. {user.id}", value=f"Healing (avg/10 mins): {data['healing']}", inline=False)
+	embed = discord.Embed(title="Healing Leaderboard  (Top 10)", color=discord.Colour.from_rgb(249,158,26))
+	for i, user in enumerate(users, start=1):
+		data = user.to_dict()
+		embed.add_field(name=f"{i}. {user.id}", value=f"Healing (avg/10 mins): {data['healing']}", inline=False)
 
-    await ctx.reply(embed=embed, mention_author=False)
+	await ctx.reply(embed=embed, mention_author=False)
 
 @bot.command()
 async def winrate(ctx):
-    users_ref = db.collection('user_stats')
-    # Get all users sorted by win rate in descending order
-    users = users_ref.order_by("wins", direction=firestore.Query.DESCENDING).limit(10).stream()
+	guild_id = ctx.guild.id
+	users_ref = db.collection('guilds').document(str(guild_id)).collection('user_stats')
+	# Get all users sorted by win rate in descending order
+	users = users_ref.order_by("wins", direction=firestore.Query.DESCENDING).limit(10).stream()
 
-    embed = discord.Embed(title="Win rate Leaderboard", color=discord.Colour.from_rgb(249,158,26))
-    for i, user in enumerate(users, start=1):
-        data = user.to_dict()
-        embed.add_field(name=f"{i}. {user.id}", value=f"Win rate: {data['wins']}", inline=False)
+	embed = discord.Embed(title="Win Rate Leaderboard  (Top 10)", color=discord.Colour.from_rgb(249,158,26))
+	for i, user in enumerate(users, start=1):
+		data = user.to_dict()
+		embed.add_field(name=f"{i}. {user.id}", value=f"Win rate: {data['wins']}", inline=False)
 
-    await ctx.reply(embed=embed, mention_author=False)
+	await ctx.reply(embed=embed, mention_author=False)
 
 @bot.event
 async def on_ready():
